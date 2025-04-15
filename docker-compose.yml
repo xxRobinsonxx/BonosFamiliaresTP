@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgresBonosFamiliares
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-cred-data:/var/lib/postgresql/data
+  springboot:
+    build: .
+    ports:
+      - "${SPRING_PORT}:${SPRING_PORT}"
+    container_name: springboot-BonosFamiliares
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: ${SPRING_PORT}
+      CONTEXT_PATH: ${CONTEXT_PATH}
+    depends_on:
+      - postgres
+volumes:
+  postgres-cred-data:
