@@ -7,9 +7,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres-cred-data:/var/lib/postgresql/data
+      - postgres-cred-data:/var/lib/postgresql/
+    networks:
+      - user-service-network
+    healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
   springboot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "${SPRING_PORT}:${SPRING_PORT}"
     container_name: springboot-BonosFamiliares
@@ -21,7 +31,56 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_PORT: ${SPRING_PORT}
       CONTEXT_PATH: ${CONTEXT_PATH}
+      SPRING_PROFILES_ACTIVE : docker
+      SPRING_RABBITMQ_HOST : ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT}
+      SPRING_RABBITMQ_USERNAME : ${RABBITMQ_USER}
+      SPRING_RABBITMQ_PASSWORD : ${RABBITMQ_PASS}
+      SPRING_MAIL_HOST : ${MAIL_HOST}
+      SPRING_MAIL_PORT : ${MAIL_PORT}
+      SPRING_MAIL_USERNAME : ${MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD : ${MAIL_PASSWORD}
+      APP_RABBITMQ_EXCHANGE : ${RABBITMQ_EXCHANGE}
+      APP_RABBITMQ_QUEUE : ${RABBITMQ_QUEUE}
+      APP_RABBITMQ_ROUTINGKEY : ${RABBITMQ_ROUTING_KEY}
+      JAVA_OPTS : ${JAVA_OPTS}
     depends_on:
-      - postgres
+        postgres:
+          condition: service_healthy
+        rabbitmq:
+          condition: service_healthy
+    volumes:
+      - postgres-cred-data:/var/lib/postgresql/data
+    networks:
+      - user-service-network
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-userCorreo
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER : ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS : ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - user-service-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: always
+
 volumes:
   postgres-cred-data:
+  rabbitmq_data:
+
+
+networks:
+      user-service-network:
+        driver: bridge

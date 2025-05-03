@@ -1,12 +1,15 @@
 package com.bonos.bonosfamiliares.service;
 
+import com.bonos.bonosfamiliares.messaging.MessagePublisher;
 import com.bonos.bonosfamiliares.model.BonoFamiliar;
+import com.bonos.bonosfamiliares.model.EmailNotification;
 import com.bonos.bonosfamiliares.repository.BonoFamiliarRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -14,15 +17,31 @@ import java.util.List;
 
 @Service
 public class BonoFamiliarService {
-
+    private static final Logger logger = LoggerFactory.getLogger(BonoFamiliarService.class);
     private final BonoFamiliarRepository repository;
+    private final MessagePublisher messagePublisher;
 
-    public BonoFamiliarService(BonoFamiliarRepository repository) {
+    public BonoFamiliarService(BonoFamiliarRepository repository , MessagePublisher messagePublisher) {
         this.repository = repository;
+        this.messagePublisher = messagePublisher;
     }
 
     public BonoFamiliar registrarBonoFamiliar(BonoFamiliar bonoFamiliar) {
-        return repository.save(bonoFamiliar);
+        BonoFamiliar savedbonoFamiliar = repository.save(bonoFamiliar);
+        logger.info("Bono Familiar created successfully: {}", savedbonoFamiliar.getId());
+
+        try {
+            // Create email notification
+            EmailNotification notification = EmailNotification.forNewBonoFamiliarRegistration(savedbonoFamiliar);
+
+            // Send notification to RabbitMQ (o simplemente registra si RabbitMQ no está disponible)
+            messagePublisher.publishEmailNotification(notification);
+
+        } catch (Exception e) {
+            // Log the error but don't fail the user creation
+            logger.error("Failed to process email notification: {}", e.getMessage());
+        }
+        return savedbonoFamiliar;
     }
 
     public List<BonoFamiliar> listarBonosFamiliares() {
